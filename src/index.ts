@@ -124,7 +124,7 @@ app.put("/:userID/todos/:id", async (c) => {
     const invalidTitleType =
       body.title && (typeof body.title !== "string" || Number(body.title));
     const invalidStatusType =
-      body.status && (typeof body.status !== "string" || Number(body.status));
+      body.status && (typeof body.status !== "string");
     if (
       hasInvalidkeys(bodyKeys) ||
       invalidTitleType ||
