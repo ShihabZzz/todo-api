@@ -22,7 +22,7 @@ const findByTodoID = (db: Todo[], id: string) => {
   return db.find(todo => todo.id === id) || false
 }
 
-// get all todos
+/* Get_All_Todos */
 app.get('/:userID/todos', async (c) => {
   try {
     const user = c.req.param('userID')
@@ -36,7 +36,7 @@ app.get('/:userID/todos', async (c) => {
   }
 })
 
-// get todo by id
+/* Get_A_Todo */
 app.get('/:userID/todos/:id', async (c) => {
   try {
     const user = c.req.param('userID')
@@ -51,7 +51,7 @@ app.get('/:userID/todos/:id', async (c) => {
   }
 })
 
-// create/POST a todo
+/* Create_A_Todo */
 app.post('/:userID/todos', async (c) => {
   try {
     const user = c.req.param('userID')
@@ -83,7 +83,7 @@ app.post('/:userID/todos', async (c) => {
   }
 })
 
-// update/PUT a todo
+/* Update_A_Todo */
 app.put('/:userID/todos/:id', async (c) => {
   try {
     const user = c.req.param('userID')
@@ -115,7 +115,7 @@ app.put('/:userID/todos/:id', async (c) => {
   }
 })
 
-// delete a todo
+/* Delete_A_Todo */
 app.delete('/:userID/todos/:id', async (c) => {
   try {
     const user = c.req.param('userID')
@@ -130,7 +130,7 @@ app.delete('/:userID/todos/:id', async (c) => {
   }
 })
 
-// delete all todos
+/* Delete_All_Todos */
 app.delete('/:userID/todos', async (c) => {
   try {
     const user = c.req.param('userID')
@@ -144,7 +144,7 @@ app.delete('/:userID/todos', async (c) => {
   }
 })
 
-const port = 3000
+const port = process.env.PORT ? +(process.env.PORT) : 3000
 console.log(`Server is running on port ${port}`)
 
 serve({
