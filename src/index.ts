@@ -28,6 +28,32 @@ const hasInvalidkeys = (bodyKeys: string[]) => {
   });
 };
 
+const bodyTitleValidation = (body: any): { valid: boolean; message?: string } => {
+  const bodyKeys = Object.keys(body);
+  switch (true) {
+    case (!bodyKeys.includes("title")):
+      return { valid: false, message: "Title is required" };
+    case typeof body.title !== "string" || body.title.trim() === "" || !isNaN(body.title):
+      return { valid: false, message: "Title must be valid string type" };
+    case body.title.length > 100:
+      return { valid: false, message: "Title can't exceed 100 characters" };
+    default:
+      return { valid: true };
+  }
+};
+
+const bodyStatusValidation = (body: any): { valid: boolean; message?: string } => {
+  const bodyKeys = Object.keys(body);
+  switch (true) {
+    case bodyKeys.includes("status") && (typeof body.status !== "string" || body.status.trim() === ""):
+      return { valid: false, message: "Status must be a valid string type" };
+    case body.status?.length > 50:
+      return { valid: false, message: "Status can't exceed 50 characters" };
+    default:
+      return { valid: true };
+  }
+}
+
 /* Get_All_Todos */
 app.get("/:userID/todos", async (c) => {
   try {
@@ -62,31 +88,19 @@ app.post("/:userID/todos", async (c) => {
   try {
     const user = c.req.param("userID");
     const body = await c.req.json();
-    if (
-      !body.title ||
-      body.title.trim() === "" ||
-      Number(body.title) ||
-      typeof body.title !== "string"
-    ) {
-      return c.json({ message: "Title is required & must be a string" }, 400);
-    }
     const bodyKeys = Object.keys(body);
-    const invalidStatusType = body.status && typeof body.status !== "string";
-    if (
-      hasInvalidkeys(bodyKeys) ||
-      invalidStatusType ||
-      body.title.length > 100 ||
-      body.status?.length > 100
-    ) {
-      return c.json(
-        {
-          message:
-            hasInvalidkeys(bodyKeys) || invalidStatusType
-              ? "Invalid request body"
-              : "Title/Status can't exceed 100 characters",
-        },
-        400
-      );
+    if (hasInvalidkeys(bodyKeys)) {
+      return c.json({
+        message: "Invalid request body",
+      }, 400);
+    }
+    const titleValidation = bodyTitleValidation(body);
+    if (!titleValidation.valid) {
+      return c.json({ message: titleValidation.message }, 400);
+    }
+    const statusValidation = bodyStatusValidation(body);
+    if (!statusValidation.valid) {
+      return c.json({ message: statusValidation.message }, 400);
     }
     const todo: Todo = {
       title: body.title,
@@ -121,38 +135,25 @@ app.put("/:userID/todos/:id", async (c) => {
       return c.json({ message: "Todo not found" }, 404);
     }
     const bodyKeys = Object.keys(body);
-    const invalidTitleType =
-      body.title && (typeof body.title !== "string" || Number(body.title));
-    const invalidStatusType =
-      body.status && (typeof body.status !== "string");
-    if (
-      hasInvalidkeys(bodyKeys) ||
-      invalidTitleType ||
-      invalidStatusType ||
-      body.title?.length > 100 ||
-      body.status?.length > 100
-    ) {
-      return c.json(
-        {
-          message:
-            hasInvalidkeys(bodyKeys) || invalidTitleType || invalidStatusType
-              ? "Invalid request body"
-              : "Title/Status can't exceed 100 characters",
-        },
-        400
-      );
+    if (hasInvalidkeys(bodyKeys) || bodyKeys.length === 0) {
+      return c.json({ message: "Invalid request body" }, 400);
     }
-    if (body.title?.trim() === "" || body.status?.trim() === "") {
-      return c.json({ message: "Title or Status Can't be empty." }, 400);
+    const titleValidation = bodyTitleValidation(body);
+    if (bodyKeys.includes('title') && !titleValidation.valid) {
+      return c.json({ message: titleValidation.message }, 400);
+    }
+    const statusValidation = bodyStatusValidation(body);
+    if (!statusValidation.valid) {
+      return c.json({ message: statusValidation.message }, 400);
     }
     const todoIndex = db[user].findIndex((todo) => todo.id === id);
-    const updatedTodo = {
+    const todo = {
       ...db[user][todoIndex],
       ...body,
       updatedAt: new Date().toISOString(),
     };
-    db[user][todoIndex] = updatedTodo;
-    return c.json({ message: "Todo updated", updatedTodo }, 200);
+    db[user][todoIndex] = todo;
+    return c.json({ message: "Todo updated", todo }, 200);
   } catch (error) {
     if (error instanceof SyntaxError) {
       return c.json({ message: "Failed to parse JSON" }, 400);
