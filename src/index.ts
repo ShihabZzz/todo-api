@@ -14,12 +14,16 @@ interface Todo {
 }
 const db: Record<string, Todo[]> = {};
 
-const findUser = (userID: string) => {
-  return db[userID] || false;
+const findUser = (user: string) => {
+  return db[user] || false;
 };
 
 const findByTodoID = (db: Todo[], id: string) => {
   return db.find((todo) => todo.id === id) || false;
+};
+
+const findTodoIndex = (db: Todo[], id: string) => {
+  return db.findIndex((todo) => todo.id === id);
 };
 
 const hasInvalidkeys = (bodyKeys: string[]) => {
@@ -28,12 +32,16 @@ const hasInvalidkeys = (bodyKeys: string[]) => {
   });
 };
 
-const bodyTitleValidation = (body: any): { valid: boolean; message?: string } => {
+const bodyTitleValidation = (
+  body: any,
+): { valid: boolean; message?: string } => {
   const bodyKeys = Object.keys(body);
   switch (true) {
-    case (!bodyKeys.includes("title")):
+    case !bodyKeys.includes("title"):
       return { valid: false, message: "Title is required" };
-    case typeof body.title !== "string" || body.title.trim() === "" || !isNaN(body.title):
+    case typeof body.title !== "string" ||
+      body.title.trim() === "" ||
+      !isNaN(body.title):
       return { valid: false, message: "Title must be valid string type" };
     case body.title.length > 100:
       return { valid: false, message: "Title can't exceed 100 characters" };
@@ -42,22 +50,25 @@ const bodyTitleValidation = (body: any): { valid: boolean; message?: string } =>
   }
 };
 
-const bodyStatusValidation = (body: any): { valid: boolean; message?: string } => {
+const bodyStatusValidation = (
+  body: any,
+): { valid: boolean; message?: string } => {
   const bodyKeys = Object.keys(body);
   switch (true) {
-    case bodyKeys.includes("status") && (typeof body.status !== "string" || body.status.trim() === ""):
+    case bodyKeys.includes("status") &&
+      (typeof body.status !== "string" || body.status.trim() === ""):
       return { valid: false, message: "Status must be a valid string type" };
     case body.status?.length > 50:
       return { valid: false, message: "Status can't exceed 50 characters" };
     default:
       return { valid: true };
   }
-}
+};
 
 /* Get_All_Todos */
-app.get("/:userID/todos", async (c) => {
+app.get("/:user/todos", async (c) => {
   try {
-    const user = c.req.param("userID");
+    const user = c.req.param("user");
     if (!findUser(user)) {
       return c.json({ message: "User not found" }, 404);
     }
@@ -69,9 +80,9 @@ app.get("/:userID/todos", async (c) => {
 });
 
 /* Get_A_Todo */
-app.get("/:userID/todos/:id", async (c) => {
+app.get("/:user/todos/:id", async (c) => {
   try {
-    const user = c.req.param("userID");
+    const user = c.req.param("user");
     const id = c.req.param("id");
     if (!findUser(user) || !findByTodoID(db[user], id)) {
       return c.json({ message: "Todo not found" }, 404);
@@ -84,15 +95,18 @@ app.get("/:userID/todos/:id", async (c) => {
 });
 
 /* Create_A_Todo */
-app.post("/:userID/todos", async (c) => {
+app.post("/:user/todos", async (c) => {
   try {
-    const user = c.req.param("userID");
+    const user = c.req.param("user");
     const body = await c.req.json();
     const bodyKeys = Object.keys(body);
     if (hasInvalidkeys(bodyKeys)) {
-      return c.json({
-        message: "Invalid request body",
-      }, 400);
+      return c.json(
+        {
+          message: "Invalid request body",
+        },
+        400,
+      );
     }
     const titleValidation = bodyTitleValidation(body);
     if (!titleValidation.valid) {
@@ -115,7 +129,7 @@ app.post("/:userID/todos", async (c) => {
     db[user].push(todo);
     return c.json<{ message: string; todo: Todo }>(
       { message: "Todo created", todo },
-      201
+      201,
     );
   } catch (error) {
     if (error instanceof SyntaxError) {
@@ -126,27 +140,35 @@ app.post("/:userID/todos", async (c) => {
 });
 
 /* Update_A_Todo */
-app.put("/:userID/todos/:id", async (c) => {
+app.put("/:user/todos/:id", async (c) => {
   try {
-    const user = c.req.param("userID");
+    const user = c.req.param("user");
     const id = c.req.param("id");
     const body = await c.req.json();
     if (!findUser(user) || !findByTodoID(db[user], id)) {
       return c.json({ message: "Todo not found" }, 404);
     }
     const bodyKeys = Object.keys(body);
-    if (hasInvalidkeys(bodyKeys) || bodyKeys.length === 0) {
-      return c.json({ message: "Invalid request body" }, 400);
+    const validations = [
+      {
+        valid: !hasInvalidkeys(bodyKeys) && bodyKeys.length > 0,
+        message: "Invalid request body",
+      },
+      {
+        valid: !bodyKeys.includes("title") || bodyTitleValidation(body).valid,
+        message: bodyTitleValidation(body).message,
+      },
+      {
+        valid: bodyStatusValidation(body).valid,
+        message: bodyStatusValidation(body).message,
+      },
+    ];
+    for (const validation of validations) {
+      if (!validation.valid) {
+        return c.json({ message: validation.message }, 400);
+      }
     }
-    const titleValidation = bodyTitleValidation(body);
-    if (bodyKeys.includes('title') && !titleValidation.valid) {
-      return c.json({ message: titleValidation.message }, 400);
-    }
-    const statusValidation = bodyStatusValidation(body);
-    if (!statusValidation.valid) {
-      return c.json({ message: statusValidation.message }, 400);
-    }
-    const todoIndex = db[user].findIndex((todo) => todo.id === id);
+    const todoIndex = findTodoIndex(db[user], id);
     const todo = {
       ...db[user][todoIndex],
       ...body,
@@ -163,14 +185,14 @@ app.put("/:userID/todos/:id", async (c) => {
 });
 
 /* Delete_A_Todo */
-app.delete("/:userID/todos/:id", async (c) => {
+app.delete("/:user/todos/:id", async (c) => {
   try {
-    const user = c.req.param("userID");
+    const user = c.req.param("user");
     const id = c.req.param("id");
     if (!findUser(user) || !findByTodoID(db[user], id)) {
       return c.json({ message: "Todo not found" }, 404);
     }
-    db[user] = db[user].filter((todo) => todo.id !== id);
+    db[user].splice(findTodoIndex(db[user], id), 1);
     return c.json({ message: "Todo deleted successfully" }, 200);
   } catch (error) {
     return c.json({ message: "Internal Server Error" }, 500);
@@ -178,9 +200,9 @@ app.delete("/:userID/todos/:id", async (c) => {
 });
 
 /* Delete_All_Todos */
-app.delete("/:userID/todos", async (c) => {
+app.delete("/:user/todos", async (c) => {
   try {
-    const user = c.req.param("userID");
+    const user = c.req.param("user");
     if (!findUser(user)) {
       return c.json({ message: "User not found" }, 404);
     }

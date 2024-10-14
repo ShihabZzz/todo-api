@@ -39,31 +39,31 @@ TodoAPI is a simple RESTful API for managing todo items. It allows users to crea
 Once the server is running, you can use tools like Postman or curl to interact with the API. The base URL for the API is `http://localhost:3000`.
 
 ### Endpoints
-Replace `userID` and `id` with the appropriate values.
+Replace `user` and `id` with the appropriate values.
 
-- `GET /:userID/todos` - Get all todos for a user
+- `GET /:user/todos` - Get all todos for a user
     ```sh
-    curl -X GET http://localhost:3000/{userID}/todos
+    curl -X GET http://localhost:3000/{user}/todos
     ```
-- `GET /:userID/todos/:id` - Get a specific todo by ID
+- `GET /:user/todos/:id` - Get a specific todo by ID
     ```sh
-    curl -X GET http://localhost:3000/{userID}/todos/{id}
+    curl -X GET http://localhost:3000/{user}/todos/{id}
     ```
-- `POST /:userID/todos` - Create a new todo
+- `POST /:user/todos` - Create a new todo
     ```sh
-    curl -X POST http://localhost:3000/{userID}/todos -H "Content-Type: application/json" -d '{"title":"New Todo","status":"todo"}'
+    curl -X POST http://localhost:3000/{user}/todos -H "Content-Type: application/json" -d '{"title":"New Todo","status":"todo"}'
     ```
-- `PUT /:userID/todos/:id` - Update a todo
+- `PUT /:user/todos/:id` - Update a todo
     ```sh
-    curl -X PUT http://localhost:3000/{userID}/todos/{id} -H "Content-Type: application/json" -d '{"title":"Updated Todo","status":"Completed"}'
+    curl -X PUT http://localhost:3000/{user}/todos/{id} -H "Content-Type: application/json" -d '{"title":"Updated Todo","status":"Completed"}'
     ```
-- `DELETE /:userID/todos/:id` - Delete a todo
+- `DELETE /:user/todos/:id` - Delete a todo
     ```sh
-    curl -X DELETE http://localhost:3000/{userID}/todos/{id}
+    curl -X DELETE http://localhost:3000/{user}/todos/{id}
     ```
-- `DELETE /:userID/todos` - Delete all todos for a user
+- `DELETE /:user/todos` - Delete all todos for a user
     ```sh
-    curl -X DELETE http://localhost:3000/{userID}/todos
+    curl -X DELETE http://localhost:3000/{user}/todos
     ```
 
 ### Contributing
