@@ -1,5 +1,5 @@
 {
-  "name": "todoAPI",
+  "name": "todo-api",
   "scripts": {
     "dev": "tsx watch src/index.ts"
   },
