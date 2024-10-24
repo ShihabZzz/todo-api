@@ -17,8 +17,9 @@ TodoAPI is a simple RESTful API for managing todo items. It allows users to crea
 
 ### Prerequisites
 
-- Node.js (v14 or higher)
-- npm (v6 or higher)
+- Node.js
+- npm 
+- Turso SQLite
 
 ### Installation
 
@@ -29,7 +30,13 @@ TodoAPI is a simple RESTful API for managing todo items. It allows users to crea
     npm install
     ```
 
-3. Start the server:
+3. Create a .env file in the root of project and add your Turso database url and auth token
+    ```sh
+    TURSO_DATABASE_URL=
+    TURSO_AUTH_TOKEN=
+    ```
+
+4. Start the server:
     ```sh
     npm run dev
     ```
