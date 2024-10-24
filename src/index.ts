@@ -1,6 +1,7 @@
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { prettyJSON } from "hono/pretty-json";
+import { z } from "zod";
 
 const app = new Hono();
 app.use(prettyJSON());
@@ -32,38 +33,22 @@ const hasInvalidkeys = (bodyKeys: string[]) => {
   });
 };
 
-const bodyTitleValidation = (
-  body: any,
-): { valid: boolean; message?: string } => {
-  const bodyKeys = Object.keys(body);
-  switch (true) {
-    case !bodyKeys.includes("title"):
-      return { valid: false, message: "Title is required" };
-    case typeof body.title !== "string" ||
-      body.title.trim() === "" ||
-      !isNaN(body.title):
-      return { valid: false, message: "Title must be valid string type" };
-    case body.title.length > 100:
-      return { valid: false, message: "Title can't exceed 100 characters" };
-    default:
-      return { valid: true };
-  }
-};
+const titleValidation = z
+  .string({ required_error: "title is required" })
+  .min(3, { message: "title must be at least 3 characters" })
+  .max(100, { message: "title must not exceed 100 characters" })
+  .refine((title) => title.trim() !== "" && isNaN(Number(title)), {
+    message: "title must be valid string type",
+  });
 
-const bodyStatusValidation = (
-  body: any,
-): { valid: boolean; message?: string } => {
-  const bodyKeys = Object.keys(body);
-  switch (true) {
-    case bodyKeys.includes("status") &&
-      (typeof body.status !== "string" || body.status.trim() === ""):
-      return { valid: false, message: "Status must be a valid string type" };
-    case body.status?.length > 50:
-      return { valid: false, message: "Status can't exceed 50 characters" };
-    default:
-      return { valid: true };
-  }
-};
+const statusValidation = z
+  .string()
+  .min(3, { message: "status must be at least 3 characters" })
+  .max(50, { message: "status must not exceed 50 characters" })
+  .refine((status) => status.trim() !== "", {
+    message: "status must be valid string type",
+  })
+  .optional();
 
 /* Get_All_Todos */
 app.get("/:user/todos", async (c) => {
@@ -108,13 +93,19 @@ app.post("/:user/todos", async (c) => {
         400,
       );
     }
-    const titleValidation = bodyTitleValidation(body);
-    if (!titleValidation.valid) {
-      return c.json({ message: titleValidation.message }, 400);
+    const titleValidationResult = titleValidation.safeParse(body.title);
+    if (!titleValidationResult.success) {
+      return c.json(
+        { message: titleValidationResult.error.errors[0].message },
+        400,
+      );
     }
-    const statusValidation = bodyStatusValidation(body);
-    if (!statusValidation.valid) {
-      return c.json({ message: statusValidation.message }, 400);
+    const statusValidationResult = statusValidation.safeParse(body.status);
+    if (!statusValidationResult.success) {
+      return c.json(
+        { message: statusValidationResult.error.errors[0].message },
+        400,
+      );
     }
     const todo: Todo = {
       title: body.title,
@@ -155,12 +146,15 @@ app.put("/:user/todos/:id", async (c) => {
         message: "Invalid request body",
       },
       {
-        valid: !bodyKeys.includes("title") || bodyTitleValidation(body).valid,
-        message: bodyTitleValidation(body).message,
+        valid:
+          !bodyKeys.includes("title") ||
+          titleValidation.safeParse(body.title).success,
+        message: titleValidation.safeParse(body.title).error?.errors[0].message,
       },
       {
-        valid: bodyStatusValidation(body).valid,
-        message: bodyStatusValidation(body).message,
+        valid: statusValidation.safeParse(body.status).success,
+        message: statusValidation.safeParse(body.status).error?.errors[0]
+          .message,
       },
     ];
     for (const validation of validations) {
