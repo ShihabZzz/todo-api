@@ -1,30 +1,24 @@
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
+import { eq } from "drizzle-orm";
 import { prettyJSON } from "hono/pretty-json";
 import { z } from "zod";
+import { db } from "../connection";
+import { usersTable, todosTable } from "./db/schema";
 
 const app = new Hono();
 app.use(prettyJSON());
 
-interface Todo {
-  title: string;
-  id: string;
-  status: string;
-  createdAt: string;
-  updatedAt: string;
-}
-const db: Record<string, Todo[]> = {};
-
-const findUser = (user: string) => {
-  return db[user] || false;
+const findUser = async (user: string) => {
+  return await db
+    .select()
+    .from(usersTable)
+    .where(eq(usersTable.user, user))
+    .get();
 };
 
-const findByTodoID = (db: Todo[], id: string) => {
-  return db.find((todo) => todo.id === id) || false;
-};
-
-const findTodoIndex = (db: Todo[], id: string) => {
-  return db.findIndex((todo) => todo.id === id);
+const findByTodoID = async (id: string) => {
+  return await db.select().from(todosTable).where(eq(todosTable.id, id)).get();
 };
 
 const hasInvalidkeys = (bodyKeys: string[]) => {
@@ -54,10 +48,20 @@ const statusValidation = z
 app.get("/:user/todos", async (c) => {
   try {
     const user = c.req.param("user");
-    if (!findUser(user)) {
+    const userExist = await findUser(user);
+    if (!userExist) {
       return c.json({ message: "User not found" }, 404);
     }
-    const data = db[user];
+    const data = await db
+      .select({
+        id: todosTable.id,
+        title: todosTable.title,
+        status: todosTable.status,
+        createdAt: todosTable.createdAt,
+        updatedAt: todosTable.updatedAt,
+      })
+      .from(todosTable)
+      .where(eq(todosTable.user, user));
     return c.json(data);
   } catch (error) {
     return c.json({ message: "Internal Server Error" }, 500);
@@ -69,10 +73,21 @@ app.get("/:user/todos/:id", async (c) => {
   try {
     const user = c.req.param("user");
     const id = c.req.param("id");
-    if (!findUser(user) || !findByTodoID(db[user], id)) {
+    const userExist = await findUser(user);
+    const todoExist = await findByTodoID(id);
+    if (!userExist || !todoExist) {
       return c.json({ message: "Todo not found" }, 404);
     }
-    const data = db[user].find((todo) => todo.id === id);
+    const data = await db
+      .select({
+        id: todosTable.id,
+        title: todosTable.title,
+        status: todosTable.status,
+        createdAt: todosTable.createdAt,
+        updatedAt: todosTable.updatedAt,
+      })
+      .from(todosTable)
+      .where(eq(todosTable.id, id));
     return c.json(data);
   } catch (error) {
     return c.json({ message: "Internal Server Error" }, 500);
@@ -107,21 +122,22 @@ app.post("/:user/todos", async (c) => {
         400,
       );
     }
-    const todo: Todo = {
+    const todo = {
       title: body.title,
       id: crypto.randomUUID(),
       status: body.status || "todo",
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
-    if (!findUser(user)) {
-      db[user] = [];
+    const userExist = await findUser(user);
+    if (!userExist) {
+      await db.insert(usersTable).values({ user }).execute();
     }
-    db[user].push(todo);
-    return c.json<{ message: string; todo: Todo }>(
-      { message: "Todo created", todo },
-      201,
-    );
+    await db
+      .insert(todosTable)
+      .values({ ...todo, user })
+      .execute();
+    return c.json({ message: "Todo created", todo }, 201);
   } catch (error) {
     if (error instanceof SyntaxError) {
       return c.json({ message: "Failed to parse JSON" }, 400);
@@ -136,7 +152,9 @@ app.put("/:user/todos/:id", async (c) => {
     const user = c.req.param("user");
     const id = c.req.param("id");
     const body = await c.req.json();
-    if (!findUser(user) || !findByTodoID(db[user], id)) {
+    const userExist = await findUser(user);
+    const todoExist = await findByTodoID(id);
+    if (!userExist || !todoExist) {
       return c.json({ message: "Todo not found" }, 404);
     }
     const bodyKeys = Object.keys(body);
@@ -162,13 +180,29 @@ app.put("/:user/todos/:id", async (c) => {
         return c.json({ message: validation.message }, 400);
       }
     }
-    const todoIndex = findTodoIndex(db[user], id);
-    const todo = {
-      ...db[user][todoIndex],
-      ...body,
-      updatedAt: new Date().toISOString(),
-    };
-    db[user][todoIndex] = todo;
+    const oldTodo = await db
+      .select()
+      .from(todosTable)
+      .where(eq(todosTable.id, id));
+    await db
+      .update(todosTable)
+      .set({
+        ...oldTodo,
+        ...body,
+        updatedAt: new Date().toISOString(),
+      })
+      .where(eq(todosTable.id, id))
+      .execute();
+    const todo = await db
+      .select({
+        id: todosTable.id,
+        title: todosTable.title,
+        status: todosTable.status,
+        createdAt: todosTable.createdAt,
+        updatedAt: todosTable.updatedAt,
+      })
+      .from(todosTable)
+      .where(eq(todosTable.id, id));
     return c.json({ message: "Todo updated", todo }, 200);
   } catch (error) {
     if (error instanceof SyntaxError) {
@@ -183,10 +217,12 @@ app.delete("/:user/todos/:id", async (c) => {
   try {
     const user = c.req.param("user");
     const id = c.req.param("id");
-    if (!findUser(user) || !findByTodoID(db[user], id)) {
+    const userExist = await findUser(user);
+    const todoExist = await findByTodoID(id);
+    if (!userExist || !todoExist) {
       return c.json({ message: "Todo not found" }, 404);
     }
-    db[user].splice(findTodoIndex(db[user], id), 1);
+    await db.delete(todosTable).where(eq(todosTable.id, id)).execute();
     return c.json({ message: "Todo deleted successfully" }, 200);
   } catch (error) {
     return c.json({ message: "Internal Server Error" }, 500);
@@ -197,10 +233,11 @@ app.delete("/:user/todos/:id", async (c) => {
 app.delete("/:user/todos", async (c) => {
   try {
     const user = c.req.param("user");
-    if (!findUser(user)) {
+    const userExist = await findUser(user);
+    if (!userExist) {
       return c.json({ message: "User not found" }, 404);
     }
-    db[user] = [];
+    await db.delete(todosTable).where(eq(todosTable.user, user)).execute();
     return c.json({ message: "All todos deleted successfully" }, 200);
   } catch (error) {
     return c.json({ message: "Internal Server Error" }, 500);

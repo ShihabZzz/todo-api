@@ -5,11 +5,15 @@
   },
   "dependencies": {
     "@hono/node-server": "^1.13.2",
+    "@libsql/client": "^0.14.0",
+    "dotenv": "^16.4.5",
+    "drizzle-orm": "^0.35.3",
     "hono": "^4.6.6",
     "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/node": "^20.17.0",
+    "drizzle-kit": "^0.26.2",
     "tsx": "^4.19.1"
   }
 }
